@@ -1,0 +1,17 @@
+/* Category Image View */
+.smd-img-view img {
+    max-height: 150px;
+    max-width: 150px;
+    border: 1px solid #ccc;
+    padding: 3px;
+    margin: 5px 0 0 0;
+    box-sizing: border-box;
+}
+.smd-cat-img {
+    max-height: 70px;
+    max-width: 70px;
+    border: 1px solid #ccc;
+    padding: 3px;
+    margin: 5px 0 0 0;
+    box-sizing: border-box;
+}
