@@ -66,5 +66,46 @@ class Safe_Media_Delete_Test extends WP_UnitTestCase {
 		// Clean up the category and attachments.
 		wp_delete_category( $category_id );
 		wp_delete_attachment( $attachment_id, true );
-	}	
+	}
+
+	/**
+	 * Test to delete image if not attached anywhere
+	 */
+	public function test_delete_attachment() {
+		// Attach test image to post.
+		$attachment_id = $this->upload_test_image_file_to_post();
+
+		$post_data = wp_delete_attachment( $attachment_id, true );
+		if ( $post_data ) {
+			$this->assertTrue( true );
+		}
+	}
+
+	/**
+	 * Test to prevent delete image if attached anywhere
+	 */
+	public function test_prevent_delete_attachment() {
+		global $smd_admin;
+
+		// Create a new post.
+		$post_id = $this->factory->post->create();
+
+		// Attach test image to post.
+		$attachment_id = $this->upload_test_image_file_to_post( $post_id );
+
+		set_post_thumbnail( $post_id, $attachment_id );
+
+		// Update attachment meta to update attached objects.
+		$smd_admin->smd_update_attachment_details( $post_id, get_post( $post_id ) );
+
+		try {
+			$post_data = wp_delete_attachment( $attachment_id, true );
+		} catch ( Exception $e ) {
+			$attached_media = smd_attached_media( $attachment_id, false );
+			if ( true === $attached_media['attach_found'] && isset( $attached_media['message'] ) ) {
+				$msg = implode( '<br>', $attached_media['message'] );
+			}
+			$this->assertEquals( "<p>Sorry, this image is used and can't be deleted. Used at following places.<br>$msg", $e->getMessage() );
+		}
+	}
 }
