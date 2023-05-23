@@ -85,6 +85,54 @@ class Safe_Media_Delete_Rest_Api_Test extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Function to delete attachment rest API
+	 */
+	public function test_attached_delete_attachment_rest_api() {
+		global $smd_admin;
+
+		// Create a new post.
+		$post_id = $this->factory->post->create();
+
+		// Attach test image to post.
+		$attachment_id = $this->upload_test_image_file_to_post( $post_id );
+
+		set_post_thumbnail( $post_id, $attachment_id );
+
+		// Update attachment meta to update attached objects.
+		$smd_admin->smd_update_attachment_details( $post_id, get_post( $post_id ) );
+
+		// Create a user.
+		$user_id = $this->factory->user->create();
+		$user    = new WP_User( $user_id );
+		$user->add_cap( 'delete_posts' );
+
+		// Set the current user to simulate authentication.
+		wp_set_current_user( $user_id );
+
+		$response = $this->perform_rest_request( 'DELETE', '/assignment/v1/deleteattachment/' . $attachment_id );
+
+		$this->assertEquals( 200, $response->status );
+		$attached_media = smd_attached_media( $attachment_id, true );
+		$msg            = '';
+		if ( true === $attached_media['attach_found'] ) {
+			$msg = 'Used ';
+			if ( isset( $attached_media['message']['featured_image'] ) ) {
+				$msg .= 'As featured image in post: ';
+				$msg .= strtolower( implode( ',', $attached_media['message']['featured_image'] ) ) . ' ';
+			}
+			if ( isset( $attached_media['message']['category'] ) ) {
+				$msg .= 'In category image field: ';
+				$msg .= strtolower( implode( ',', $attached_media['message']['category'] ) ) . ' ';
+			}
+			if ( isset( $attached_media['message']['post_content'] ) ) {
+				$msg .= 'In post content: ';
+				$msg .= strtolower( implode( ',', $attached_media['message']['post_content'] ) ) . ' ';
+			}
+		}
+		$this->assertEquals( "Sorry, this image is used and can't be deleted. $msg", $response->get_data()['message'] );
+	}
+
+	/**
 	 * Function to perform REST api
 	 *
 	 * @param string $method REST API method.
