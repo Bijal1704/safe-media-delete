@@ -64,6 +64,27 @@ class Safe_Media_Delete_Rest_Api_Test extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Test for delete attachment rest api
+	 */
+	public function test_delete_attachment_rest_api() {
+
+		// Attach test image to post.
+		$attachment_id = $this->upload_test_image_file_to_post();
+
+		$user_id = $this->factory->user->create();
+		$user    = new WP_User( $user_id );
+		$user->add_cap( 'delete_posts' );
+
+		// Set the current user to simulate authentication.
+		wp_set_current_user( $user_id );
+
+		$response = $this->perform_rest_request( 'DELETE', '/assignment/v1/deleteattachment/' . $attachment_id );
+
+		$this->assertEquals( 200, $response->status );
+		$this->assertEquals( 'Attachment delete successfully', $response->get_data()['body'] );
+	}
+
+	/**
 	 * Function to perform REST api
 	 *
 	 * @param string $method REST API method.
