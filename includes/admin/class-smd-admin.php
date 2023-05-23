@@ -290,6 +290,21 @@ class SMD_Admin {
 	}
 
 	/**
+	 * Prevent Media delete
+	 *
+	 * @param int $post_id Post Id.
+	 * @since 1.0.0
+	 */
+	public function smd_prevent_media_delete( $post_id ) {
+		$attached_media = smd_attached_media( $post_id, false );
+		if ( true === $attached_media['attach_found'] && isset( $attached_media['message'] ) ) {
+			$msg = implode( '<br>', $attached_media['message'] );
+			wp_die( "<p>Sorry, this image is used and can't be deleted. Used at following places.<br>$msg" ); // phpcs:ignore
+			return false;
+		}
+	}
+
+	/**
 	 * Adding Hooks
 	 *
 	 * @package Safe Media Delete
@@ -312,5 +327,8 @@ class SMD_Admin {
 		add_filter( 'admin_post_thumbnail_html', array( $this, 'smd_featured_image_display' ), 10, 2 );
 
 		add_action( 'wp_media_attach_action', array( $this, 'smd_media_detach_action' ), 10, 3 );
+
+		// prevent delete attachment.
+		add_action( 'delete_attachment', array( $this, 'smd_prevent_media_delete' ), 10, 1 );
 	}
 }
