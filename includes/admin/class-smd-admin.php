@@ -305,6 +305,51 @@ class SMD_Admin {
 	}
 
 	/**
+	 * Create a new namespace and endpoint
+	 *
+	 * @param string $rest column name.
+	 * @since 1.0.0
+	 */
+	public function smd_assignment_endpoint( $rest ) {
+		register_rest_route(
+			'assignment/v1',
+			'/attachment/(?P<id>\d+)',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'smd_attachment_details' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+	}
+
+	/**
+	 * API endpoint callback function
+	 *
+	 * @param array $data endpoint passed data.
+	 * @since 1.0.0
+	 */
+	public function smd_attachment_details( $data ) {
+		if ( 'attachment' === get_post_type( $data['id'] ) && wp_attachment_is_image( $data['id'] ) ) {
+			$post = get_post( $data['id'] );
+			if ( empty( $post ) ) {
+				return new WP_Error( 'no_attachment', 'Invalid attchment id', array( 'status' => 404 ) );
+			}
+			$attached_media         = smd_attached_media( $data['id'], true );
+			$post_array['ID']       = $post->ID;
+			$post_array['Date']     = $post->post_date;
+			$post_array['Slug']     = $post->post_name;
+			$post_array['Type']     = $post->post_mime_type;
+			$post_array['Link']     = $post->guid;
+			$post_array['Alt text'] = $post->post_title;
+			$post_array['Attached'] = $attached_media['message'];
+
+			return new WP_REST_Response( array( 'body' => $post_array ), 200 );
+		} else {
+			return new WP_Error( array( 'message' => 'Invalid attchment id' ), 404 );
+		}
+	}
+
+	/**
 	 * Adding Hooks
 	 *
 	 * @package Safe Media Delete
@@ -330,5 +375,8 @@ class SMD_Admin {
 
 		// prevent delete attachment.
 		add_action( 'delete_attachment', array( $this, 'smd_prevent_media_delete' ), 10, 1 );
+
+		// Create a new namespace and endpoint.
+		add_action( 'rest_api_init', array( $this, 'smd_assignment_endpoint' ) );
 	}
 }
