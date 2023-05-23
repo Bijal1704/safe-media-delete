@@ -320,6 +320,18 @@ class SMD_Admin {
 				'permission_callback' => '__return_true',
 			)
 		);
+
+		register_rest_route(
+			'assignment/v1',
+			'/deleteattachment/(?P<id>\d+)',
+			array(
+				'methods'             => 'DELETE',
+				'callback'            => array( $this, 'smd_attachment_delete_details' ),
+				'permission_callback' => function () {
+					return current_user_can( 'delete_posts' );
+				},
+			)
+		);
 	}
 
 	/**
@@ -347,6 +359,48 @@ class SMD_Admin {
 		} else {
 			return new WP_Error( array( 'message' => 'Invalid attchment id' ), 404 );
 		}
+	}
+
+	/**
+	 * API delete attachment endpoint callback function
+	 *
+	 * @param array $data endpoint passed data.
+	 * @since 1.0.0
+	 */
+	public function smd_attachment_delete_details( $data ) {
+		if ( 'attachment' === get_post_type( $data['id'] ) && wp_attachment_is_image( $data['id'] ) ) {
+			$post = get_post( $data['id'] );
+			if ( empty( $post ) ) {
+				return new WP_REST_Response( array( 'message' => 'Invalid attchment id' ), 400 );
+			}
+			$attached_media = smd_attached_media( $data['id'], true );
+			if ( true === $attached_media['attach_found'] ) {
+				$msg = 'Used ';
+				if ( isset( $attached_media['message']['featured_image'] ) ) {
+					$msg .= 'As featured image in post: ';
+					$msg .= strtolower( implode( ',', $attached_media['message']['featured_image'] ) ) . ' ';
+				}
+				if ( isset( $attached_media['message']['category'] ) ) {
+					$msg .= 'In category image field: ';
+					$msg .= strtolower( implode( ',', $attached_media['message']['category'] ) ) . ' ';
+				}
+				if ( isset( $attached_media['message']['post_content'] ) ) {
+					$msg .= 'In post content: ';
+					$msg .= strtolower( implode( ',', $attached_media['message']['post_content'] ) ) . ' ';
+				}
+				$message = new WP_REST_Response( array( 'message' => "Sorry, this image is used and can't be deleted. $msg" ), 200 );
+			} else {
+				$deleted = wp_delete_attachment( $data['id'], true );
+				if ( $deleted ) {
+					$message = new WP_REST_Response( array( 'body' => 'Attachment delete successfully' ), 200 );
+				} else {
+					$message = new WP_REST_Response( array( 'message' => 'Something went wrong so image deletion failed.' ), 400 );
+				}
+			}
+		} else {
+			$message = new WP_REST_Response( array( 'message' => 'Invalid attchment id' ), 400 );
+		}
+		return $message;
 	}
 
 	/**
