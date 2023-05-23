@@ -136,6 +136,160 @@ class SMD_Admin {
 	}
 
 	/**
+	 * Add custom columns to media library page
+	 *
+	 * @param array $columns column array.
+	 * @since 1.0.0
+	 */
+	public function smd_column_attached( $columns ) {
+		$columns['colAttached'] = esc_html__( 'Linked Object', 'safe-media-delete' );
+		return $columns;
+	}
+
+	/**
+	 * Add custom columns to media library page
+	 *
+	 * @param string $column_name column name.
+	 * @param int    $column_id column id.
+	 * @since 1.0.0
+	 */
+	public function smd_column_attached_row( $column_name, $column_id ) {
+		if ( 'colAttached' === $column_name ) {
+
+			$attached_media = smd_attached_media( $column_id, false );
+
+			if ( true === $attached_media['attach_found'] && isset( $attached_media['message'] ) ) {
+				$msg = implode( '<br>', $attached_media['message'] );
+				echo "<p>$msg</p>"; // phpcs:ignore
+			}
+		}
+	}
+
+	/**
+	 * Function to add custom media field in attchment edit page
+	 *
+	 * @param array  $form_fields attachment fields data.
+	 * @param object $post wp_post object.
+	 * @since 1.0.0
+	 */
+	public function smd_media_custom_field( $form_fields, $post ) {
+		$post_id        = $post->ID;
+		$attached_media = smd_attached_media( $post->ID, false );
+		if ( true === $attached_media['attach_found'] && isset( $attached_media['message'] ) ) {
+			$field_value                   = implode( '<br>', $attached_media['message'] );
+			$form_fields['linked_artical'] = array(
+				'html'  => $field_value ? $field_value : '',
+				'label' => esc_html__( 'Linked Articles: ', 'safe-media-delete' ),
+				'input' => 'html',
+			);
+		}
+		return $form_fields;
+	}
+
+	/**
+	 * Function to save custom metadata in attchment
+	 *
+	 * @param array  $id post id.
+	 * @param object $post wp_post object.
+	 * @since 1.0.0
+	 */
+	public function smd_update_attachment_details( $id, $post ) {
+
+		if ( 'attchment' === $post->post_type ) {
+			return $id;
+		}
+
+		$post_attchment = get_post_meta( $id, '_thumbnail_id', true );
+
+		if ( ! empty( $post_attchment ) ) { // Code to store post id in meta.
+
+			$attachment_parents = get_post_meta( $post_attchment, '_smd_media_parents', true );
+			$attachment_parents = ! empty( $attachment_parents ) ? $attachment_parents : array();
+
+			if ( ! in_array( $id, $attachment_parents ) ) {
+				$attachment_parents[] = $id;
+				update_post_meta( $post_attchment, '_smd_media_parents', $attachment_parents );
+			}
+		} else { // Remove post id from attachment meta.
+
+			if ( isset( $_POST['_smb_old_thumbnail'] ) ) { // phpcs:ignore
+
+				$old_attachment = sanitize_text_field( wp_unslash( $_POST['_smb_old_thumbnail'] ) ); // phpcs:ignore
+
+				if ( ! empty( $old_attachment ) ) {
+
+					$attachment_parents = get_post_meta( $old_attachment, '_smd_media_parents', true );
+					$attachment_parents = ! empty( $attachment_parents ) ? $attachment_parents : array();
+
+					if ( ! empty( $attachment_parents ) ) {
+
+						$key = array_search( $id, $attachment_parents );
+
+						if ( ! empty( $key ) || 0 === $key ) {
+
+							unset( $attachment_parents[ $key ] );
+						}
+					}
+
+					update_post_meta( $old_attachment, '_smd_media_parents', $attachment_parents );
+				}
+			}
+		}
+
+	}
+
+
+	/**
+	 * Function to add custom field to have old thumnail id in post
+	 *
+	 * @param string $html metabox html.
+	 * @param object $id post id.
+	 * @since 1.0.0
+	 */
+	public function smd_featured_image_display( $html, $id ) {
+
+		$thumbnail_id = get_post_meta( $id, '_thumbnail_id', true );
+
+		if ( ! empty( $thumbnail_id ) ) {
+			$new_field = '<input type="hidden" name="_smb_old_thumbnail" value="' . esc_attr( $thumbnail_id ) . '" >';
+
+			$html .= $new_field;
+		}
+
+		return $html;
+	}
+
+	/**
+	 * Function to remove thumnail id from the custom field.
+	 *
+	 * @param string $action detach.
+	 * @param object $attachment_id attachment id.
+	 * @param object $parent_id attachment parent id.
+	 * @since 1.0.0
+	 */
+	public function smd_media_detach_action( $action, $attachment_id, $parent_id ) {
+
+		if ( 'detach' === $action ) {
+
+			$attachment_parents = get_post_meta( $attachment_id, '_smd_media_parents', true );
+			$attachment_parents = ! empty( $attachment_parents ) ? $attachment_parents : array();
+
+			if ( ! empty( $attachment_parents ) ) {
+
+				$key = array_search( $parent_id, $attachment_parents );
+
+				if ( ! empty( $key ) || 0 === $key ) {
+
+					unset( $attachment_parents[ $key ] );
+				}
+			}
+
+			update_post_meta( $attachment_id, '_smd_media_parents', $attachment_parents );
+
+		}
+	}
+
+	/**
 	 * Adding Hooks
 	 *
 	 * @package Safe Media Delete
@@ -145,5 +299,18 @@ class SMD_Admin {
 
 		// Action to add category columns.
 		add_action( 'admin_init', array( $this, 'smd_admin_init_process' ) );
+
+		// Add custom columns to media library page.
+		add_filter( 'manage_media_columns', array( $this, 'smd_column_attached' ) );
+		add_filter( 'manage_media_custom_column', array( $this, 'smd_column_attached_row' ), 10, 2 );
+
+		// Add custom field to edit attachment page.
+		add_filter( 'attachment_fields_to_edit', array( $this, 'smd_media_custom_field' ), 10, 2 );
+
+		add_action( 'save_post', array( $this, 'smd_update_attachment_details' ), 10, 2 );
+
+		add_filter( 'admin_post_thumbnail_html', array( $this, 'smd_featured_image_display' ), 10, 2 );
+
+		add_action( 'wp_media_attach_action', array( $this, 'smd_media_detach_action' ), 10, 3 );
 	}
 }
