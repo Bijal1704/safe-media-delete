@@ -98,7 +98,7 @@ function smd_get_image_src( $attachment_id = '', $size = 'full' ) {
  * Get Attached media message
  *
  * @param int     $attach_id attachment Id.
- * @param boolean $api api flag.
+ * @param boolean $api whether called from api or not.
  * @since 1.0.0
  */
 function smd_attached_media( $attach_id, $api = false ) {
@@ -113,11 +113,19 @@ function smd_attached_media( $attach_id, $api = false ) {
 		if ( $posts_with_featured_image ) {
 			$attach_found = true;
 			foreach ( $posts_with_featured_image as $postids ) {
-				$post_fids[] = '<a href="' . get_edit_post_link( $postids ) . '">' . $postids . '</a>';
+				if ( true === $api ) {
+					$post_fids[] = $postids;
+				} else {
+					$post_fids[] = '<a href="' . get_edit_post_link( $postids ) . '">' . $postids . '</a>';
+				}
 			}
 
-			$postfeatured = implode( ', ', $post_fids );
-			$message[]    = "As featured image in post: $postfeatured";
+			if ( true === $api ) {
+				$message['featured_image'] = $post_fids;
+			} else {
+				$postfeatured = implode( ', ', $post_fids );
+				$message[]    = "As featured image in post: $postfeatured";
+			}
 		}
 
 		// Check if the media file is used in the post content.
@@ -129,11 +137,19 @@ function smd_attached_media( $attach_id, $api = false ) {
 		if ( $posts_with_image_in_content ) {
 			$attach_found = true;
 			foreach ( $posts_with_image_in_content as $postids ) {
-				$post_ids[] = '<a href="' . get_edit_post_link( $postids['ID'] ) . '">' . $postids['ID'] . '</a>';
+				if ( true === $api ) {
+					$post_ids[] = $postids['ID'];
+				} else {
+					$post_ids[] = '<a href="' . get_edit_post_link( $postids['ID'] ) . '">' . $postids['ID'] . '</a>';
+				}
 			}
 
-			$post_contents = implode( ', ', $post_ids );
-			$message[]     = "In post content: $post_contents";
+			if ( true === $api ) {
+				$message['post_content'] = $post_ids;
+			} else {
+				$post_contents = implode( ', ', $post_ids );
+				$message[]     = "In post content: $post_contents";
+			}
 		}
 
 		$category_image_attached = $wpdb->get_results(
@@ -144,13 +160,21 @@ function smd_attached_media( $attach_id, $api = false ) {
 		if ( $category_image_attached ) {
 			$attach_found = true;
 			foreach ( $category_image_attached as $catids ) {
-				$taxonomy  = get_term( $catids['term_id'] )->taxonomy;
-				$tax_link  = get_edit_term_link( $catids['term_id'], $taxonomy );
-				$cat_ids[] = '<a href="' . $tax_link . '">' . $catids['term_id'] . '</a>';
+				$taxonomy = get_term( $catids['term_id'] )->taxonomy;
+				$tax_link = get_edit_term_link( $catids['term_id'], $taxonomy );
+				if ( true === $api ) {
+					$cat_ids[] = (int) $catids['term_id'];
+				} else {
+					$cat_ids[] = '<a href="' . $tax_link . '">' . $catids['term_id'] . '</a>';
+				}
 			}
 
-			$category_attached = implode( ', ', $cat_ids );
-			$message[]         = "In category image field: $category_attached";
+			if ( true === $api ) {
+				$message['category'] = $cat_ids;
+			} else {
+				$category_attached = implode( ', ', $cat_ids );
+				$message[]         = "In category image field: $category_attached";
+			}
 		}
 	}
 	$attached_media['attach_found'] = isset( $attach_found ) ? $attach_found : false;
